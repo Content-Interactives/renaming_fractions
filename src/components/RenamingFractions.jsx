@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-import { Card, CardContent } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 
 const RenamingFractions = () => {
   const [numerator, setNumerator] = useState('');
@@ -9,316 +6,407 @@ const RenamingFractions = () => {
   const [steps, setSteps] = useState([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [gcdSteps, setGcdSteps] = useState([]);
-  const [currentGcdStepIndex, setCurrentGcdStepIndex] = useState(-1);
-  const [showAllGcdSteps, setShowAllGcdSteps] = useState(false);
-  const [warning, setWarning] = useState('');
-  const [gcdInputs, setGcdInputs] = useState({});
-  const [gcdInputErrors, setGcdInputErrors] = useState({});
-  const [isNextStepLocked, setIsNextStepLocked] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [simplifiedNum, setSimplifiedNum] = useState(0);
+  const [simplifiedDen, setSimplifiedDen] = useState(0);
+  const [finalRepresentation, setFinalRepresentation] = useState('');
+  const [showGlow, setShowGlow] = useState(true);
+  const [showNextGlow, setShowNextGlow] = useState(false);
 
-  const validateInput = (num, den) => {
-    return !isNaN(num) && !isNaN(den) && 
-           Number.isInteger(num) && Number.isInteger(den) && 
-           den !== 0 && num > 0 && den > 0 &&
-           num <= 100 && den <= 100;
+  const handleNumeratorChange = (e) => {
+    const value = e.target.value;
+    // Reject non-numeric characters
+    if (value === '' || /^[0-9]+$/.test(value)) {
+      // Only allow positive integers up to 1000
+      if (value === '' || (parseInt(value) > 0 && parseInt(value) <= 1000)) {
+        setNumerator(value);
+      }
+    }
+  };
+
+  const handleDenominatorChange = (e) => {
+    const value = e.target.value;
+    // Reject non-numeric characters
+    if (value === '' || /^[0-9]+$/.test(value)) {
+      // Only allow positive integers up to 1000
+      if (value === '' || (parseInt(value) > 0 && parseInt(value) <= 1000)) {
+        setDenominator(value);
+      }
+    }
   };
 
   const gcdWithSteps = (a, b) => {
     const steps = [];
-    let x = Math.abs(a);
-    let y = Math.abs(b);
+    let x = Math.max(Math.abs(a), Math.abs(b));
+    let y = Math.min(Math.abs(a), Math.abs(b));
     
     while (y !== 0) {
+      const quotient = Math.floor(x / y);
+      const remainder = x % y;
+      
       steps.push({
         x: x,
         y: y,
-        quotient: Math.floor(x / y),
-        remainder: x % y
+        quotient: quotient,
+        remainder: remainder
       });
-      [x, y] = [y, x % y];
+      
+      x = y;
+      y = remainder;
     }
     
     return { gcd: x, steps: steps };
   };
 
+  const [displayedNumerator, setDisplayedNumerator] = useState('');
+  const [displayedDenominator, setDisplayedDenominator] = useState('');
+
   const handleSimplify = () => {
+    // Basic validation
+    if (!numerator || !denominator) {
+      return;
+    }
+    
+    setShowGlow(false); // Turn off glow when button is clicked
+    setShowNextGlow(true); // Turn on Next button glow when Simplify is clicked
+    
     const num = parseInt(numerator);
     const den = parseInt(denominator);
     
-    if (!validateInput(num, den)) {
-      setWarning('Please enter valid positive integers for both numerator and denominator between 1 and 100. Denominator cannot be zero.');
-      setSteps([]);
-      setCurrentStepIndex(0);
-      setGcdInputErrors({});
+    if (isNaN(num) || isNaN(den) || den === 0) {
       return;
     }
+    
+    // Store the current values for display
+    setDisplayedNumerator(num);
+    setDisplayedDenominator(den);
 
-    setWarning('');
-    setGcdInputs({});
-    setGcdInputErrors({});
     const { gcd, steps: gcdCalcSteps } = gcdWithSteps(num, den);
-    const simplifiedNum = num / gcd;
-    const simplifiedDen = den / gcd;
+    const simplifiedN = num / gcd;
+    const simplifiedD = den / gcd;
+    
+    // Store the simplified values in state
+    setSimplifiedNum(simplifiedN);
+    setSimplifiedDen(simplifiedD);
+    
+    // Determine the final representation (proper fraction, mixed number, or whole number)
+    let finalRep = '';
+    if (simplifiedN === simplifiedD) {
+      // Case: Equal numerator and denominator (e.g., 5/5 = 1)
+      finalRep = `${simplifiedN}/${simplifiedD} = 1`;
+    } else if (simplifiedN % simplifiedD === 0) {
+      // Case: Numerator is a multiple of denominator (e.g., 10/5 = 2)
+      finalRep = `${simplifiedN}/${simplifiedD} = ${simplifiedN / simplifiedD}`;
+    } else if (simplifiedN > simplifiedD) {
+      // Case: Improper fraction to mixed number (e.g., 7/3 = 2 1/3)
+      const wholeNumber = Math.floor(simplifiedN / simplifiedD);
+      const newNumerator = simplifiedN - (wholeNumber * simplifiedD);
+      finalRep = `${simplifiedN}/${simplifiedD} = ${wholeNumber} ${newNumerator}/${simplifiedD}`;
+    } else {
+      // Case: Proper fraction (e.g., 3/5)
+      finalRep = `${simplifiedN}/${simplifiedD}`;
+    }
+    
+    // Store in state
+    setFinalRepresentation(finalRep);
 
     setSteps([
-      `Step 1: Start with the fraction ${num}/${den}`,
-      'Step 2: Find the Greatest Common Divisor (GCD)\nusing the division method:',
-      `Step 3: Divide both the numerator and denominator by the GCD (${gcd})`,
-      `Step 4: Write the simplified fraction:\n${simplifiedNum}/${simplifiedDen}`
+      `Step 1: Find the Greatest Common Divisor (GCD) of ${num} and ${den} using the Euclidean division method:`,
+      `Step 2: Divide both the numerator and denominator by the GCD (${gcd}):
+${num} ÷ ${gcd} = ${simplifiedN}
+${den} ÷ ${gcd} = ${simplifiedD}`,
+      `Step 3: Write the simplified fraction in its final form:`,
+      `Step 4: Simplification Complete!`
     ]);
     
     setGcdSteps(gcdCalcSteps);
-    setShowAllGcdSteps(false);
     setCurrentStepIndex(0);
-    setCurrentGcdStepIndex(-1);
-  };
-
-  const handleGcdCheck = () => {
-    if (currentGcdStepIndex >= gcdSteps.length - 1) return;
-
-    const step = gcdSteps[currentGcdStepIndex + 1];
-    const stepKey = `step${currentGcdStepIndex + 1}`;
-    const userQuotient = gcdInputs[stepKey]?.quotient === '' ? null : parseInt(gcdInputs[stepKey]?.quotient);
-    const userRemainder = gcdInputs[stepKey]?.remainder === '' ? null : parseInt(gcdInputs[stepKey]?.remainder);
-
-    const errors = {
-      quotient: userQuotient === null || userQuotient !== step.quotient,
-      remainder: userRemainder === null || userRemainder !== step.remainder
-    };
-    
-    setGcdInputErrors(prev => ({
-      ...prev,
-      [stepKey]: errors
-    }));
-
-    if (!errors.quotient && !errors.remainder) {
-      setCurrentGcdStepIndex(prev => prev + 1);
-      setGcdInputs(prev => ({
-        ...prev,
-        [`step${currentGcdStepIndex + 2}`]: { quotient: '', remainder: '' }
-      }));
-
-      if (currentGcdStepIndex + 1 === gcdSteps.length - 1) {
-        setShowAllGcdSteps(true);
-        setIsNextStepLocked(false);
-      }
-    }
-  };
-
-  const handleNextStep = () => {
-    if (currentStepIndex < steps.length - 1 && !isNextStepLocked) {
-      setGcdInputErrors({});
-      if (currentStepIndex === 1 && !showAllGcdSteps) {
-        setShowAllGcdSteps(true);
-      } else {
-        setCurrentStepIndex(prev => prev + 1);
-      }
-    }
-  };
-
-  const generateRandomFraction = () => {
-    setNumerator(Math.floor(Math.random() * 100) + 1);
-    setDenominator(Math.floor(Math.random() * 100) + 1);
-    setWarning('');
+    setShowResults(true);
   };
 
   return (
-    <div className="bg-gray-100 p-8 w-[780px] overflow-auto">
-      <Card className="w-[748px] mx-auto shadow-md bg-white">
-        <div className="bg-sky-50 p-6 rounded-t-lg w-[748px]">
-          <h1 className="text-sky-900 text-2xl font-bold w-full">Fraction Simplifier</h1>
-          <p className="text-sky-800 w-full">Simplify fractions to their lowest terms!</p>
+    <>
+      <style>{`
+        @property --r {
+          syntax: '<angle>';
+          inherits: false;
+          initial-value: 0deg;
+        }
+
+        .glow-button { 
+          min-width: auto; 
+          height: auto; 
+          position: relative; 
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1;
+          transition: all .3s ease;
+          padding: 7px;
+        }
+
+        .glow-button::before {
+          content: "";
+          display: block;
+          position: absolute;
+          background: rgb(249, 250, 251); /* This is the equivalent of bg-gray-50 */
+          inset: 2px;
+          border-radius: 4px;
+          z-index: -2;
+        }
+
+        .glow-button-white::before {
+          content: "";
+          display: block;
+          position: absolute;
+          background: #fff;
+          inset: 2px;
+          border-radius: 4px;
+          z-index: -2;
+        }
+
+        .simple-glow {
+          background: conic-gradient(
+            from var(--r),
+            transparent 0%,
+            rgb(0, 255, 132) 2%,
+            rgb(0, 214, 111) 8%,
+            rgb(0, 174, 90) 12%,
+            rgb(0, 133, 69) 14%,
+            transparent 15%
+          );
+          animation: rotating 3s linear infinite;
+          transition: animation 0.3s ease;
+        }
+
+        .simple-glow.stopped {
+          animation: none;
+          background: none;
+        }
+
+        @keyframes rotating {
+          0% {
+            --r: 0deg;
+          }
+          100% {
+            --r: 360deg;
+          }
+        }
+      `}</style>
+      <div className="w-full max-w-md mx-auto shadow-md bg-white rounded-lg overflow-hidden select-none">
+        <div className="p-3 space-y-3">
+          <label className="block text-sm font-medium text-gray-700">
+            Enter a fraction to simplify:
+          </label>
+          <div className="space-y-2">
+            <div className="flex flex-col space-y-1">
+              <div className="flex space-x-2 items-center">
+                <input
+                  id="numeratorInput"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={numerator}
+                  onChange={handleNumeratorChange}
+                  placeholder="Numerator"
+                  className="w-full text-base h-9 px-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  id="denominatorInput"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={denominator}
+                  onChange={handleDenominatorChange}
+                  placeholder="Denominator"
+                  className="w-full text-base h-9 px-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <div className={`glow-button glow-button-white ${showGlow ? 'simple-glow' : 'simple-glow stopped'}`}>
+                  <button
+                    onClick={handleSimplify}
+                    className="h-8 px-2 bg-[#00783E] hover:bg-[#006633] text-white text-sm rounded-md transition-colors"
+                  >
+                    Simplify
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <CardContent className="space-y-6 pt-6 w-[748px]">
-          <div className="bg-blue-50 p-4 rounded border border-blue-200">
-            <h2 className="text-blue-900 font-bold mb-2">Fraction Simplification Basics</h2>
-            <p className="text-blue-600 mb-2">
-              Simplifying a fraction (also known as renaming) means reducing it to its lowest terms by dividing both
-              the numerator and denominator by their greatest common divisor (GCD).
-            </p>
-            <p className="text-blue-800 font-bold text-center my-4">
-              Simplified Fraction = Numerator ÷ GCD / Denominator ÷ GCD
-            </p>
-            <p className="text-blue-600">
-              We use the division method to find the GCD efficiently. This process
-              doesn't change the value of the fraction but makes it simpler to understand
-              and work with.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-gray-700 text-lg font-bold">Fraction to simplify:</h3>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                value={numerator}
-                onChange={(e) => setNumerator(e.target.value)}
-                placeholder="Numerator"
-                className="border border-blue-300 rounded w-full"
-                max="100"
-              />
-              <Input
-                type="number"
-                value={denominator}
-                onChange={(e) => setDenominator(e.target.value)}
-                placeholder="Denominator"
-                className="border border-blue-300 rounded w-full"
-                max="100"
-              />
-              <Button
-                onClick={generateRandomFraction}
-                className="bg-sky-500 hover:bg-sky-600 text-white px-4"
-              >
-                🔄 Random
-              </Button>
-            </div>
-
-            {warning && (
-              <p className="text-red-600">{warning}</p>
-            )}
-
-            <Button
-              onClick={handleSimplify}
-              className="w-full bg-blue-950 hover:bg-blue-900 text-white py-3"
-            >
-              Simplify Fraction
-            </Button>
-          </div>
-
-          {steps.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-purple-600 text-xl font-bold">Simplification Steps:</h3>
+        
+        {showResults && (
+          <div className="p-3 flex flex-col items-start bg-gray-50 rounded-b-lg space-y-2">
+            <div className="w-full">
+              <h3 className="text-[#5750E3] text-sm font-medium mb-2">
+                Steps to simplify the fraction ({displayedNumerator}/{displayedDenominator}):
+              </h3>
               
-              {steps.slice(0, currentStepIndex + 1).map((step, index) => (
-                <div key={index} className="bg-purple-50 p-4 rounded-lg">
-                  <p className="whitespace-pre-line">{step}</p>
-                  
-                  {index === 1 && (
-                    <div className="font-mono mt-2">
-                      {showAllGcdSteps ? (
-                        gcdSteps.map((gcdStep, i) => (
-                          <p key={i} className="text-sm">
-                            {gcdStep.x} ÷ {gcdStep.y} = {gcdStep.quotient} R {gcdStep.remainder}
-                          </p>
-                        ))
-                      ) : (
-                        <>
-                          {gcdSteps.slice(0, currentGcdStepIndex + 1).map((gcdStep, i) => (
-                            <p key={i} className="text-sm">
-                              {gcdStep.x} ÷ {gcdStep.y} = {gcdStep.quotient} R {gcdStep.remainder}
-                            </p>
-                          ))}
-                          {currentGcdStepIndex < gcdSteps.length - 1 && (
-                            <div className="flex items-center space-x-1 mt-2">
-                              <span className="text-sm">
-                                {gcdSteps[currentGcdStepIndex + 1].x} ÷ {gcdSteps[currentGcdStepIndex + 1].y} =
-                              </span>
-                              <Input
-                                type="number"
-                                value={gcdInputs[`step${currentGcdStepIndex + 1}`]?.quotient || ''}
-                                onChange={(e) => {
-                                  const stepKey = `step${currentGcdStepIndex + 1}`;
-                                  setGcdInputs(prev => ({
-                                    ...prev,
-                                    [stepKey]: { ...prev[stepKey], quotient: e.target.value }
-                                  }));
-                                  setGcdInputErrors(prev => ({
-                                    ...prev,
-                                    [stepKey]: { ...prev[stepKey], quotient: false }
-                                  }));
-                                }}
-                                placeholder="Quotient"
-                                style={{ width: '110px' }}
-                                className={`text-xs px-1 ${
-                                  gcdInputErrors[`step${currentGcdStepIndex + 1}`]?.quotient
-                                    ? 'border-red-500 border-2'
-                                    : 'border-blue-300'
-                                }`}
-                              />
-                              <span className="text-sm">R</span>
-                              <Input
-                                type="number"
-                                value={gcdInputs[`step${currentGcdStepIndex + 1}`]?.remainder || ''}
-                                onChange={(e) => {
-                                  const stepKey = `step${currentGcdStepIndex + 1}`;
-                                  setGcdInputs(prev => ({
-                                    ...prev,
-                                    [stepKey]: { ...prev[stepKey], remainder: e.target.value }
-                                  }));
-                                  setGcdInputErrors(prev => ({
-                                    ...prev,
-                                    [stepKey]: { ...prev[stepKey], remainder: false }
-                                  }));
-                                }}
-                                placeholder="Remainder"
-                                style={{ width: '110px' }}
-                                className={`text-xs px-1 ${
-                                  gcdInputErrors[`step${currentGcdStepIndex + 1}`]?.remainder
-                                    ? 'border-red-500 border-2'
-                                    : 'border-blue-300'
-                                }`}
-                              />
-                              <Button
-                                onClick={handleGcdCheck}
-                                className="bg-blue-400 hover:bg-blue-500 text-xs px-2 py-1"
-                              >
-                                Check
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  setGcdInputErrors({});
-                                  setCurrentGcdStepIndex(prev => prev + 1);
-                                  if (currentGcdStepIndex + 1 === gcdSteps.length - 1) {
-                                    setShowAllGcdSteps(true);
-                                    setIsNextStepLocked(false);
-                                  }
-                                }}
-                                className="bg-gray-400 hover:bg-gray-500 text-xs px-2 py-1"
-                              >
-                                Skip
-                              </Button>
+              <div className="space-y-4">
+                  <div className="w-full p-2 mb-1 bg-white border border-[#7973E9]/30 rounded-md">
+                    {currentStepIndex === 0 ? (
+                      <p className="text-sm whitespace-pre-line">{steps[currentStepIndex]}</p>
+                    ) : currentStepIndex === 3 ? (
+                      <>
+                        <p className="text-sm">{steps[currentStepIndex]}</p>
+                        <div className="flex justify-center items-center mt-2">
+                          <div className="text-green-600 text-center">
+                            {/* For improper fractions, show both representations */}
+                            {simplifiedNum > simplifiedDen && simplifiedNum % simplifiedDen !== 0 ? (
+                              <div className="flex items-center">
+                                {/* Improper fraction */}
+                                <div className="flex flex-col items-center justify-center">
+                                  <div className="text-xl font-bold">{simplifiedNum}</div>
+                                  <div className="border-t border-green-600 w-12 my-1"></div>
+                                  <div className="text-xl font-bold">{simplifiedDen}</div>
+                                </div>
+                                
+                                {/* Separator */}
+                                <div className="mx-3 text-gray-700">or</div>
+                                
+                                {/* Mixed number */}
+                                <div className="flex items-center">
+                                  <div className="text-xl font-bold mr-2">
+                                    {Math.floor(simplifiedNum / simplifiedDen)}
+                                  </div>
+                                  <div className="flex flex-col items-center justify-center">
+                                    <div className="text-xl font-bold">{simplifiedNum % simplifiedDen}</div>
+                                    <div className="border-t border-green-600 w-12 my-1"></div>
+                                    <div className="text-xl font-bold">{simplifiedDen}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : simplifiedDen === 1 ? (
+                              /* When denominator is 1, show only the whole number */
+                              <div className="text-xl font-bold">
+                                {simplifiedNum}
+                              </div>
+                            ) : (
+                              /* For proper fractions, whole numbers, or equal fractions, just show the one form */
+                              <div className="flex flex-col items-center justify-center">
+                                <div className="text-xl font-bold">{simplifiedNum}</div>
+                                <div className="border-t border-green-600 w-12 my-1"></div>
+                                <div className="text-xl font-bold">{simplifiedDen}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : currentStepIndex === 2 ? (
+                      <>
+                        <p className="text-sm">{steps[currentStepIndex].split('\n')[0]}</p>
+                        <div className="mt-2 flex justify-center">
+                          <div className="text-[#5750E3]">
+                            <div className="flex items-center">
+                              {finalRepresentation.includes('=') ? (
+                                <>
+                                  <div className="flex flex-col items-center mr-3">
+                                    <div className="text-lg font-medium">{simplifiedNum}</div>
+                                    <div className="border-t border-[#5750E3] w-8 my-1"></div>
+                                    <div className="text-lg font-medium">{simplifiedDen}</div>
+                                  </div>
+                                  <div className="mx-2">=</div>
+                                  {simplifiedNum === simplifiedDen ? (
+                                    <div className="text-lg font-medium">1</div>
+                                  ) : simplifiedNum % simplifiedDen === 0 ? (
+                                    <div className="text-lg font-medium">{simplifiedNum / simplifiedDen}</div>
+                                  ) : simplifiedNum > simplifiedDen ? (
+                                    <div className="flex items-center">
+                                      <div className="text-lg font-medium mr-2">
+                                        {Math.floor(simplifiedNum / simplifiedDen)}
+                                      </div>
+                                      <div className="flex flex-col items-center">
+                                        <div className="text-lg font-medium">{simplifiedNum % simplifiedDen}</div>
+                                        <div className="border-t border-[#5750E3] w-8 my-1"></div>
+                                        <div className="text-lg font-medium">{simplifiedDen}</div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-lg font-medium">
+                                      {finalRepresentation.split('=')[1].trim()}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="flex flex-col items-center">
+                                  <div className="text-lg font-medium">{simplifiedNum}</div>
+                                  <div className="border-t border-[#5750E3] w-8 my-1"></div>
+                                  <div className="text-lg font-medium">{simplifiedDen}</div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </>
-                      )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm">{steps[currentStepIndex].split('\n')[0]}</p>
+                        <div className="ml-4 mt-1">
+                          {steps[currentStepIndex].split('\n').slice(1).map((line, i) => (
+                            <p key={i} className="text-sm">{line}</p>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    
+                    {currentStepIndex === 0 && (
+                      <div className="font-mono mt-2 space-y-1 p-2 bg-[#7973E9]/5 rounded-md">
+                        {gcdSteps.map((gcdStep, i) => (
+                          <div key={i} className="text-xs">
+                            <p className="font-medium text-[#5750E3]">
+                              {i === 0 ? "First, divide the larger number by the smaller:" : 
+                               "Next, divide the previous divisor by the remainder:"}
+                            </p>
+                            <p className="ml-2">
+                              {gcdStep.x} ÷ {gcdStep.y} = {gcdStep.quotient} with remainder {gcdStep.remainder}
+                            </p>
+                            {i === gcdSteps.length - 1 && gcdStep.remainder === 0 && (
+                              <p className="mt-1 text-[#5750E3] font-medium">
+                                Since the remainder is 0, the GCD is the last divisor: {gcdStep.y}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="ml-1.5">
+                      <button
+                        onClick={() => setCurrentStepIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentStepIndex === 0}
+                        className="w-24 p-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        ← Previous
+                      </button>
                     </div>
-                  )}
+                    <span className="text-xs text-gray-500">
+                      Step {currentStepIndex + 1} of {steps.length}
+                    </span>
+                    <div className={`glow-button ${showNextGlow ? 'simple-glow' : 'simple-glow stopped'}`}>
+                      <button
+                        onClick={() => {
+                          const nextIndex = Math.min(steps.length - 1, currentStepIndex + 1);
+                          setCurrentStepIndex(nextIndex);
+                          if (nextIndex === steps.length - 1) {
+                            setShowNextGlow(false);
+                          }
+                        }}
+                        disabled={currentStepIndex === steps.length - 1}
+                        className="w-24 p-1 rounded-md bg-[#00783E] text-white hover:bg-[#006633] disabled:opacity-50"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              ))}
-
-              {currentStepIndex < steps.length - 1 && (
-                <Button
-                  onClick={handleNextStep}
-                  disabled={isNextStepLocked}
-                  className={`px-6 py-2 font-bold ${
-                    isNextStepLocked
-                      ? 'bg-gray-300 cursor-not-allowed'
-                      : 'bg-blue-950 text-white hover:bg-blue-900'
-                  }`}
-                >
-                  Next Step
-                </Button>
-              )}
-
-              {currentStepIndex === steps.length - 1 && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="text-green-800 text-xl font-bold">Simplification Complete!</h3>
-                  <p className="text-green-700">
-                    You've successfully simplified the fraction to its lowest terms!
-                  </p>
-                </div>
-              )}
             </div>
-          )}
-          
-        </CardContent>
-      </Card>
-      <p className="text-center text-gray-600 mt-4">
-        Fraction simplification is useful in mathematics, engineering, and everyday calculations
-        for reducing fractions to their simplest form!
-      </p>
-    </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
